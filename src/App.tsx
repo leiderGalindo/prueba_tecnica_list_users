@@ -1,42 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { SortBy, type User } from './types.d'
+import { useMemo, useState } from 'react'
 import { UserList } from './components/UserList'
 import { Header } from './components/Header'
+import { SortBy, type User } from './types.d'
 import './App.css'
+import { useUsers } from './hooks/useUsers'
 
 function App () {
-  const [users, setUsers] = useState<User[]>([])
+  const { isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, users } = useUsers()
   const [showColors, setShowColors] = useState(false)
   const [sorting, setSorting] = useState<SortBy>(SortBy.NONE)
   const [filterByCountry, setFilterByCountry] = useState<string | null>(null)
-  const originalUsers = useRef<User[]>([])
+
+  // const originalUsers = useRef<User[]>([])
   // useRef -> para guardar un valor
   // que queremos que se comparta entre renderizados
   // pero que al cambiar, no vuelva a renderizar el componente
 
-  useEffect(() => {
-    fetch('https://randomuser.me/api?results=100')
-      .then(async res => await res.json())
-      .then(res => {
-        setUsers(res?.results)
-        originalUsers.current = res?.results
-      })
-      .catch(error => {
-        console.error(error)
-      })
-  }, [])
-
   // Eliminat usuario
   const handleDelete = (email: string) => {
     const filteredUsers = users.filter((user, indexUser) => user.email !== email)
-    setUsers(filteredUsers)
+    // setUsers(filteredUsers)
   }
 
   // Resetear la lista de usuarios
-  const handleReset = () => {
-    setUsers(originalUsers.current)
+  const handleReset = async () => {
+    await refetch()
   }
 
+  // Realiza el cambio de ordenamiento
   const handleChangeSort = (sort: SortBy) => {
     setSorting(sort)
   }
@@ -71,15 +62,24 @@ function App () {
     <>
       <div className='App'>
         <h1>Prueba tecnica</h1>
-          <Header
-            showColors={showColors} onShowColors={setShowColors}
-            sorting={sorting} onSorting={setSorting}
-            onFilterCountry={setFilterByCountry}
-            onReset={handleReset}
-          ></Header>
-          <main>
+        <Header
+          showColors={showColors} onShowColors={setShowColors}
+          sorting={sorting} onSorting={setSorting}
+          onFilterCountry={setFilterByCountry}
+          onReset={() => handleReset}
+        ></Header>
+        <main>
+          { users.length > 0 &&
             <UserList deleteUser={handleDelete} showColors={showColors} users={sortedUsers} changeSorting={handleChangeSort} />
-          </main>
+          }
+          {(isLoading || isFetchingNextPage) && <p>Cargando...</p>}
+          {isError && <p>Ha habido un error</p>}
+          {!isLoading && !isError && users.length === 0 && <p>No hay usuarios</p>}
+
+          {!isLoading && !isError && !isFetchingNextPage && hasNextPage &&
+            <button onClick={() => { void fetchNextPage() }}>Cargar más resultados</button>
+          }
+        </main>
       </div>
     </>
   )
